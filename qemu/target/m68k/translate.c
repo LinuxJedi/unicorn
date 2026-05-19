@@ -6335,6 +6335,14 @@ static void m68k_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
         // Sync PC in advance
         tcg_gen_movi_i32(tcg_ctx, QREG_PC, dc->pc);
 
+        // Unicorn: the hook (or check_exit_request below) may stop emulation
+        // mid-TB, before m68k_tr_tb_stop runs its update_cc_op. Without
+        // this sync, env->cc_op stays at whatever it was at TB entry, so a
+        // subsequent host uc_reg_read(SR) computes CCR from a stale cc_op
+        // tag and returns garbage. Force the sync here so SR reads after
+        // a mid-TB stop reflect the most recently executed instruction.
+        update_cc_op(dc);
+
         gen_uc_tracecode(tcg_ctx, 2, UC_HOOK_CODE_IDX, uc, dc->pc);
         // the callback might want to stop emulation immediately
         check_exit_request(tcg_ctx);
