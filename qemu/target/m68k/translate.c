@@ -6113,7 +6113,12 @@ void register_m68k_insns (CPUM68KState *env)
     BASE(clr,       4200, ff00);
     BASE(undef,     42c0, ffc0);
     INSN(move_from_ccr, 42c0, fff8, CF_ISA_A);
-    INSN(move_from_ccr, 42c0, ffc0, M68000);
+    if (m68k_feature(env, M68K_FEATURE_M68020) ||
+        m68k_feature(env, M68K_FEATURE_M68030) ||
+        m68k_feature(env, M68K_FEATURE_M68040) ||
+        m68k_feature(env, M68K_FEATURE_M68060)) {
+        BASE(move_from_ccr, 42c0, ffc0);
+    }
     INSN(neg,       4480, fff8, CF_ISA_A);
     INSN(neg,       4400, ff00, M68000);
     INSN(undef,     44c0, ffc0, M68000);
