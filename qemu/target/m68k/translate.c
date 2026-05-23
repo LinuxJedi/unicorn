@@ -2251,7 +2251,7 @@ DISAS_INSN(bitop_im)
 
     bitnum = read_im16(env, s);
     if (m68k_feature(s->env, M68K_FEATURE_M68000)) {
-        if (bitnum & 0xfe00) {
+        if (bitnum & 0xff00) {
             disas_undef(env, s, insn);
             return;
         }

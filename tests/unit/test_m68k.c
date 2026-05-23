@@ -158,6 +158,34 @@ static void test_move_from_ccr_user_020_is_unprivileged(void)
     OK(uc_close(uc));
 }
 
+static void test_static_bitnum_rejects_reserved_bit8(void)
+{
+    uc_engine *uc;
+    uc_hook hook;
+    uint8_t code[] = {
+        0x08, 0x00,                         // btst #data,d0
+        0x01, 0x00,                         // reserved bit 8 set
+    };
+    uint32_t d0 = 0;
+    InterruptInfo info = {0};
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68020);
+    OK(uc_hook_add(uc, &hook, UC_HOOK_INTR, test_hook_interrupt, &info, 0, 0));
+
+    OK(uc_reg_write(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+
+    if (!info.called || info.intno != 4) {
+        TEST_MSG("called=%u intno=%u", info.called, info.intno);
+    }
+    TEST_CHECK(info.called);
+    TEST_CHECK(info.intno == 4);
+
+    OK(uc_hook_del(uc, hook));
+    OK(uc_close(uc));
+}
+
 typedef struct ChkInterruptInfo {
     uint32_t expected_pc;
     uint32_t actual_pc;
@@ -343,6 +371,8 @@ TEST_LIST = {{"test_move_to_sr", test_move_to_sr},
               test_move_from_sr_user_020_is_privileged},
              {"test_move_from_ccr_user_020_is_unprivileged",
               test_move_from_ccr_user_020_is_unprivileged},
+             {"test_static_bitnum_rejects_reserved_bit8",
+              test_static_bitnum_rejects_reserved_bit8},
              {"test_chkw_immediate_exception_reports_next_pc",
               test_chkw_immediate_exception_reports_next_pc},
              {"test_chk2b_displacement_exception_reports_next_pc",
