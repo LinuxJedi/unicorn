@@ -60,6 +60,99 @@ static void test_sr_contains_flags(void)
     OK(uc_close(uc));
 }
 
+typedef struct ChkInterruptInfo {
+    uint32_t expected_pc;
+    uint32_t actual_pc;
+    uint32_t intno;
+    bool called;
+} ChkInterruptInfo;
+
+static void test_chk_hook_interrupt(uc_engine *uc, uint32_t intno, void *data)
+{
+    ChkInterruptInfo *info = data;
+
+    info->called = true;
+    info->intno = intno;
+    OK(uc_reg_read(uc, UC_M68K_REG_PC, &info->actual_pc));
+    OK(uc_emu_stop(uc));
+}
+
+static void check_chk_interrupt_info(const ChkInterruptInfo *info)
+{
+    if (!info->called || info->intno != 6 ||
+        info->actual_pc != info->expected_pc) {
+        TEST_MSG("called=%u intno=%u pc=0x%08x expected_pc=0x%08x",
+                 info->called, info->intno, info->actual_pc,
+                 info->expected_pc);
+    }
+    TEST_CHECK(info->called);
+    TEST_CHECK(info->intno == 6);
+    TEST_CHECK(info->actual_pc == info->expected_pc);
+}
+
+static void test_chkw_immediate_exception_reports_next_pc(void)
+{
+    uc_engine *uc;
+    uc_hook hook;
+    uint8_t code[] = {
+        0x41, 0xbc, 0x00, 0x01,             // chk.w #1,d0
+    };
+    uint32_t d0 = 2;
+    uint32_t sr = 0x2700;
+    ChkInterruptInfo info = {
+        .expected_pc = code_start + sizeof(code),
+    };
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68000);
+    OK(uc_hook_add(uc, &hook, UC_HOOK_INTR, test_chk_hook_interrupt,
+                   &info, 0, 0));
+
+    OK(uc_reg_write(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_reg_write(uc, UC_M68K_REG_SR, &sr));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+    check_chk_interrupt_info(&info);
+
+    OK(uc_hook_del(uc, hook));
+    OK(uc_close(uc));
+}
+
+static void test_chk2b_displacement_exception_reports_next_pc(void)
+{
+    uc_engine *uc;
+    uc_hook hook;
+    uint8_t code[] = {
+        0x00, 0xe8,                         // chk2.b d16(a0),d0
+        0x08, 0x00,                         // d0, chk2 extension word
+        0x00, 0x00,                         // d16(a0)
+    };
+    uint8_t bounds[] = {
+        0x00,                               // lower bound
+        0x01,                               // upper bound
+    };
+    uint32_t d0 = 2;
+    uint32_t a0 = code_start + 0x200;
+    uint32_t sr = 0x2700;
+    ChkInterruptInfo info = {
+        .expected_pc = code_start + sizeof(code),
+    };
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68020);
+    OK(uc_hook_add(uc, &hook, UC_HOOK_INTR, test_chk_hook_interrupt,
+                   &info, 0, 0));
+    OK(uc_mem_write(uc, a0, bounds, sizeof(bounds)));
+
+    OK(uc_reg_write(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_reg_write(uc, UC_M68K_REG_A0, &a0));
+    OK(uc_reg_write(uc, UC_M68K_REG_SR, &sr));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+    check_chk_interrupt_info(&info);
+
+    OK(uc_hook_del(uc, hook));
+    OK(uc_close(uc));
+}
+
 static void test_divsl_int32_min_overflow(void)
 {
     uc_engine *uc;
@@ -146,6 +239,10 @@ static void test_divsll_int64_min_overflow(void)
 
 TEST_LIST = {{"test_move_to_sr", test_move_to_sr},
              {"test_sr_contains_flags", test_sr_contains_flags},
+             {"test_chkw_immediate_exception_reports_next_pc",
+              test_chkw_immediate_exception_reports_next_pc},
+             {"test_chk2b_displacement_exception_reports_next_pc",
+              test_chk2b_displacement_exception_reports_next_pc},
              {"test_divsl_int32_min_overflow", test_divsl_int32_min_overflow},
              {"test_divsw_int32_min_overflow", test_divsw_int32_min_overflow},
              {"test_divsll_int64_min_overflow", test_divsll_int64_min_overflow},

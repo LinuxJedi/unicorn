@@ -964,7 +964,8 @@ uint64_t HELPER(bfffo_mem)(CPUM68KState *env, uint32_t addr,
     return n | ffo;
 }
 
-void HELPER(chk)(CPUM68KState *env, int32_t val, int32_t ub)
+void HELPER(chk)(CPUM68KState *env, int32_t val, int32_t ub,
+                 uint32_t next_pc)
 {
     /*
      * From the specs:
@@ -988,14 +989,15 @@ void HELPER(chk)(CPUM68KState *env, int32_t val, int32_t ub)
         /* flags have been modified by gen_flush_flags() */
         env->cc_op = CC_OP_FLAGS;
         /* Adjust PC to end of the insn.  */
-        env->pc += 2;
+        env->pc = next_pc;
 
         cs->exception_index = EXCP_CHK;
         cpu_loop_exit(cs);
     }
 }
 
-void HELPER(chk2)(CPUM68KState *env, int32_t val, int32_t lb, int32_t ub)
+void HELPER(chk2)(CPUM68KState *env, int32_t val, int32_t lb, int32_t ub,
+                  uint32_t next_pc)
 {
     /*
      * From the specs:
@@ -1020,7 +1022,7 @@ void HELPER(chk2)(CPUM68KState *env, int32_t val, int32_t lb, int32_t ub)
         /* flags have been modified by gen_flush_flags() */
         env->cc_op = CC_OP_FLAGS;
         /* Adjust PC to end of the insn.  */
-        env->pc += 4;
+        env->pc = next_pc;
 
         cs->exception_index = EXCP_CHK;
         cpu_loop_exit(cs);

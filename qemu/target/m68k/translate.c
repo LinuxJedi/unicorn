@@ -4547,7 +4547,7 @@ DISAS_INSN(ff1)
 DISAS_INSN(chk)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
-    TCGv src, reg;
+    TCGv src, reg, next_pc;
     int opsize;
 
     switch ((insn >> 7) & 3) {
@@ -4568,14 +4568,16 @@ DISAS_INSN(chk)
     reg = gen_extend(s, DREG(insn, 9), opsize, 1);
 
     gen_flush_flags(s);
-    gen_helper_chk(tcg_ctx, tcg_ctx->cpu_env, reg, src);
+    next_pc = tcg_const_i32(tcg_ctx, s->pc);
+    gen_helper_chk(tcg_ctx, tcg_ctx->cpu_env, reg, src, next_pc);
+    tcg_temp_free(tcg_ctx, next_pc);
 }
 
 DISAS_INSN(chk2)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
     uint16_t ext;
-    TCGv addr1, addr2, bound1, bound2, reg;
+    TCGv addr1, addr2, bound1, bound2, reg, next_pc;
     int opsize;
 
     switch ((insn >> 9) & 3) {
@@ -4616,7 +4618,9 @@ DISAS_INSN(chk2)
     }
 
     gen_flush_flags(s);
-    gen_helper_chk2(tcg_ctx, tcg_ctx->cpu_env, reg, bound1, bound2);
+    next_pc = tcg_const_i32(tcg_ctx, s->pc);
+    gen_helper_chk2(tcg_ctx, tcg_ctx->cpu_env, reg, bound1, bound2, next_pc);
+    tcg_temp_free(tcg_ctx, next_pc);
     tcg_temp_free(tcg_ctx, reg);
     tcg_temp_free(tcg_ctx, bound1);
     tcg_temp_free(tcg_ctx, bound2);
