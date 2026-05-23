@@ -4723,7 +4723,12 @@ DISAS_INSN(move_from_sr)
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
     TCGv sr;
 
-    if (IS_USER(s) && !m68k_feature(env, M68K_FEATURE_M68000)) {
+    if (IS_USER(s) &&
+        (!m68k_feature(env, M68K_FEATURE_M68000) ||
+         m68k_feature(env, M68K_FEATURE_M68020) ||
+         m68k_feature(env, M68K_FEATURE_M68030) ||
+         m68k_feature(env, M68K_FEATURE_M68040) ||
+         m68k_feature(env, M68K_FEATURE_M68060))) {
         gen_exception(s, s->base.pc_next, EXCP_PRIVILEGE);
         return;
     }

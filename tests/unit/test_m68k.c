@@ -60,6 +60,52 @@ static void test_sr_contains_flags(void)
     OK(uc_close(uc));
 }
 
+typedef struct InterruptInfo {
+    uint32_t intno;
+    bool called;
+} InterruptInfo;
+
+static void test_hook_interrupt(uc_engine *uc, uint32_t intno, void *data)
+{
+    InterruptInfo *info = data;
+
+    info->called = true;
+    info->intno = intno;
+    OK(uc_emu_stop(uc));
+}
+
+static void test_move_from_sr_user_020_is_privileged(void)
+{
+    uc_engine *uc;
+    uc_hook hook;
+    uint8_t code[] = {
+        0x40, 0xc0,                         // move sr,d0
+    };
+    uint32_t d0 = 0xdeadbeef;
+    uint32_t sr = 0x0000;
+    InterruptInfo info = {0};
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68020);
+    OK(uc_hook_add(uc, &hook, UC_HOOK_INTR, test_hook_interrupt, &info, 0, 0));
+
+    OK(uc_reg_write(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_reg_write(uc, UC_M68K_REG_SR, &sr));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+
+    OK(uc_reg_read(uc, UC_M68K_REG_D0, &d0));
+
+    if (!info.called || info.intno != 8 || d0 != 0xdeadbeef) {
+        TEST_MSG("called=%u intno=%u d0=0x%08x", info.called, info.intno, d0);
+    }
+    TEST_CHECK(info.called);
+    TEST_CHECK(info.intno == 8);
+    TEST_CHECK(d0 == 0xdeadbeef);
+
+    OK(uc_hook_del(uc, hook));
+    OK(uc_close(uc));
+}
+
 typedef struct ChkInterruptInfo {
     uint32_t expected_pc;
     uint32_t actual_pc;
@@ -239,6 +285,8 @@ static void test_divsll_int64_min_overflow(void)
 
 TEST_LIST = {{"test_move_to_sr", test_move_to_sr},
              {"test_sr_contains_flags", test_sr_contains_flags},
+             {"test_move_from_sr_user_020_is_privileged",
+              test_move_from_sr_user_020_is_privileged},
              {"test_chkw_immediate_exception_reports_next_pc",
               test_chkw_immediate_exception_reports_next_pc},
              {"test_chk2b_displacement_exception_reports_next_pc",
