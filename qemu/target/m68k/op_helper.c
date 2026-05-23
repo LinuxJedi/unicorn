@@ -586,10 +586,19 @@ void HELPER(divsll)(CPUM68KState *env, int numr, int regr, int32_t den)
     if (den == 0) {
         raise_exception_ra(env, EXCP_DIV0, GETPC());
     }
+    env->cc_c = 0; /* always cleared, even if overflow */
+    if (den == -1 && num == INT64_MIN) {
+        env->cc_v = -1;
+        /*
+         * real 68040 keeps N and unset Z on overflow,
+         * whereas documentation says "undefined"
+         */
+        env->cc_z = 1;
+        return;
+    }
     quot = num / den;
     rem = num % den;
 
-    env->cc_c = 0; /* always cleared, even if overflow */
     if (quot != (int32_t)quot) {
         env->cc_v = -1;
         /*
