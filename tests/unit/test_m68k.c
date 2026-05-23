@@ -13,6 +13,14 @@ static void uc_common_setup(uc_engine **uc, uc_arch arch, uc_mode mode,
     OK(uc_mem_write(*uc, code_start, code, size));
 }
 
+static uint32_t read_be32(const uint8_t bytes[4])
+{
+    return ((uint32_t)bytes[0] << 24) |
+           ((uint32_t)bytes[1] << 16) |
+           ((uint32_t)bytes[2] << 8) |
+           bytes[3];
+}
+
 static void test_move_to_sr(void)
 {
 
@@ -56,6 +64,29 @@ static void test_sr_contains_flags(void)
 
     TEST_CHECK(d3 == 0xFFFFFFED);
     TEST_CHECK((sr & 0x8) /* N flag */ == 0x8);
+
+    OK(uc_close(uc));
+}
+
+static void test_link_a7_pushes_decremented_sp(void)
+{
+    uc_engine *uc;
+    uint8_t code[] = {
+        0x4e, 0x57, 0x00, 0x00,             // link a7,#0
+    };
+    uint32_t a7 = 0x3000;
+    uint8_t stacked[4];
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68000);
+
+    OK(uc_reg_write(uc, UC_M68K_REG_A7, &a7));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+    OK(uc_reg_read(uc, UC_M68K_REG_A7, &a7));
+    OK(uc_mem_read(uc, a7, stacked, sizeof(stacked)));
+
+    TEST_CHECK(a7 == 0x2ffc);
+    TEST_CHECK(read_be32(stacked) == 0x2ffc);
 
     OK(uc_close(uc));
 }
@@ -306,6 +337,8 @@ static void test_divsll_int64_min_overflow(void)
 
 TEST_LIST = {{"test_move_to_sr", test_move_to_sr},
              {"test_sr_contains_flags", test_sr_contains_flags},
+             {"test_link_a7_pushes_decremented_sp",
+              test_link_a7_pushes_decremented_sp},
              {"test_move_from_sr_user_020_is_privileged",
               test_move_from_sr_user_020_is_privileged},
              {"test_move_from_ccr_user_020_is_unprivileged",

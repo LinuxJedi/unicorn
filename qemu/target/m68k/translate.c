@@ -2976,8 +2976,10 @@ static void gen_link(DisasContext *s, uint16_t insn, int32_t offset)
     reg = AREG(insn, 0);
     tmp = tcg_temp_new(tcg_ctx);
     tcg_gen_subi_i32(tcg_ctx, tmp, QREG_SP, 4);
-    gen_store(s, OS_LONG, tmp, reg, IS_USER(s));
-    if ((insn & 7) != 7) {
+    if ((insn & 7) == 7) {
+        gen_store(s, OS_LONG, tmp, tmp, IS_USER(s));
+    } else {
+        gen_store(s, OS_LONG, tmp, reg, IS_USER(s));
         tcg_gen_mov_i32(tcg_ctx, reg, tmp);
     }
     tcg_gen_addi_i32(tcg_ctx, QREG_SP, tmp, offset);
