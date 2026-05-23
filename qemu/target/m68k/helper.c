@@ -774,7 +774,7 @@ void HELPER(mac_set_flags)(CPUM68KState *env, uint32_t acc)
     (index == 0) ? (int8_t)(val) : ((index == 1) ? (int16_t)(val) : (val)) \
 )
 
-#define COMPUTE_CCR(op, x, n, z, v, c) {                                   \
+#define COMPUTE_CCR(op, x, n, z, v, c) do {                                \
     switch (op) {                                                          \
     case CC_OP_FLAGS:                                                      \
         /* Everything in place.  */                                        \
