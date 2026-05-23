@@ -87,7 +87,34 @@ static void test_divsl_int32_min_overflow(void)
     OK(uc_close(uc));
 }
 
+static void test_divsw_int32_min_overflow(void)
+{
+    uc_engine *uc;
+    uint8_t code[] = {
+        0x81, 0xfc, 0xff, 0xff,             // divs.w #$ffff,d0
+    };
+    uint32_t d0 = 0x80000000;
+    uint32_t sr = 0x2700;
+
+    uc_common_setup(&uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, code, sizeof(code),
+                    UC_CPU_M68K_M68000);
+
+    OK(uc_reg_write(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_reg_write(uc, UC_M68K_REG_SR, &sr));
+    OK(uc_emu_start(uc, code_start, code_start + sizeof(code), 0, 0));
+
+    OK(uc_reg_read(uc, UC_M68K_REG_D0, &d0));
+    OK(uc_reg_read(uc, UC_M68K_REG_SR, &sr));
+
+    TEST_CHECK(d0 == 0x80000000);
+    TEST_CHECK((sr & 0x0002) == 0x0002);
+    TEST_CHECK((sr & 0x0001) == 0);
+
+    OK(uc_close(uc));
+}
+
 TEST_LIST = {{"test_move_to_sr", test_move_to_sr},
              {"test_sr_contains_flags", test_sr_contains_flags},
              {"test_divsl_int32_min_overflow", test_divsl_int32_min_overflow},
+             {"test_divsw_int32_min_overflow", test_divsw_int32_min_overflow},
              {NULL, NULL}};
